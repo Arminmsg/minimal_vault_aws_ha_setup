@@ -1,0 +1,38 @@
+ui = true
+
+cluster_name = "vault-rz1"
+#plugin_directory = "/usr/local/lib/vault/plugins"
+
+cluster_addr      = "http://${cluster_addr}:8201"
+api_addr          = "http://${api_addr}:8200"
+
+disable_mlock = true
+
+# Localhost Listener
+listener "tcp" {
+  address = "0.0.0.0:8200"
+  cluster_address = "0.0.0.0:8201"
+  #tls_require_and_verify_client_cert = false
+  #tls_disable_client_certs = true
+  tls_disable = true
+  #tls_cert_file = "/opt/vault/tls/tls.crt" # the wildcard certificate for *.firma.mediserv.de
+  #tls_key_file = "/opt/vault/tls/tls.key"
+  #tls_client_ca_file = "/opt/vault/tls/vault-ca.pem"
+}
+
+storage "raft" {
+  path = "/tmp/vault/data"
+
+  retry_join {
+    leader_api_addr = "http://${leader_api_addr_1}:8200"    
+  }
+
+  retry_join {
+    leader_api_addr = "http://${leader_api_addr_2}:8200"    
+  }
+}
+
+seal "awskms" {
+  region     = "eu-central-1"
+  kms_key_id = "${kms_id}"
+}
