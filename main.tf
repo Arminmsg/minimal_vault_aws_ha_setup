@@ -50,3 +50,7 @@ resource "aws_kms_key" "vault" {
     Name = "vault-kms-unseal-armin-test"
   }
 }
+
+output "name" {
+  value = aws_kms_key.vault.id
+}

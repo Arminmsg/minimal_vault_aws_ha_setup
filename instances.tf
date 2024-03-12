@@ -43,6 +43,12 @@ resource "aws_instance" "vault_instances" {
         "sudo mv /tmp/vault.service /etc/systemd/system/",
         ]
     }
+
+    # Creating Vault enterprise license
+    provisioner "file" {
+        source      = "vault.hclic"
+        destination = "/tmp/vault.hclic"
+    }
 }
 
 resource "null_resource" "vault_setup_1" {
