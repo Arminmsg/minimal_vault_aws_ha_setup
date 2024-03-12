@@ -1,0 +1,5 @@
+[Unit]
+Description=Vault Server
+
+[Service]
+ExecStart=vault server -config=/tmp/vault_config.hcl
