@@ -49,12 +49,23 @@ resource "aws_instance" "vault_instances" {
         source      = "vault.hclic"
         destination = "/tmp/vault.hclic"
     }
+    
+    # Copy root ca to instances, in a prod environment this wouldn't happen
+    provisioner "file" {
+      content     = file("certs/rootCA.key")
+      destination = "/tmp/rootCA.key"
+    }
+
+    provisioner "file" {
+      content     = file("certs/rootCA.crt")
+      destination = "/tmp/rootCA.crt"
+    }
 }
 
 resource "null_resource" "vault_setup_1" {
-   triggers = {
-    always_run = "${timestamp()}"
-  }
+  #triggers = {
+  #  always_run = "${timestamp()}"
+  #}
 
   connection {
     type        = "ssh"
@@ -73,6 +84,25 @@ resource "null_resource" "vault_setup_1" {
         })
     destination = "/tmp/vault_config.hcl"
   }
+
+  # Setup certs
+  provisioner "file" {
+    content     = templatefile("certs/san.cnf.tftpl", {
+        ip_addr = aws_instance.vault_instances[0].public_ip,
+        })
+    destination = "/tmp/san.cnf"
+  }
+
+  provisioner "remote-exec" {
+    inline = [ 
+      "sleep 20",
+      "cd /tmp",
+      "openssl genrsa -out vault.key 2048",
+      "openssl req -new -key vault.key -out vault.csr -config /tmp/san.cnf",
+      "openssl x509 -req -in vault.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out vault.crt -days 500 -sha256 -extensions v3_req -extfile ./san.cnf" 
+      ]    
+  }
+
   # Launch vault
   provisioner "remote-exec" {
         inline = [ "sleep 20", "sudo systemctl start vault.service" ]
@@ -81,9 +111,9 @@ resource "null_resource" "vault_setup_1" {
 
 
 resource "null_resource" "vault_setup_2" {
-   triggers = {
-    always_run = "${timestamp()}"
-  }
+  #triggers = {
+  #  always_run = "${timestamp()}"
+  #}
 
   connection {
     type        = "ssh"
@@ -103,15 +133,33 @@ resource "null_resource" "vault_setup_2" {
     destination = "/tmp/vault_config.hcl"
   }
 
+  #rootCA.crt -CAkey rootCA.key
+  provisioner "file" {
+    content     = templatefile("certs/san.cnf.tftpl", {
+        ip_addr = aws_instance.vault_instances[0].public_ip,
+        })
+    destination = "/tmp/san.cnf"
+  }
+
+  provisioner "remote-exec" {
+    inline = [ 
+      "sleep 20",
+      "cd /tmp",
+      "openssl genrsa -out vault.key 2048",
+      "openssl req -new -key vault.key -out vault.csr -config san.cnf",
+      "openssl x509 -req -in vault.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out vault.crt -days 500 -sha256 -extensions v3_req -extfile ./san.cnf" 
+      ]    
+  }
+
   provisioner "remote-exec" {
         inline = [ "sleep 20", "sudo systemctl start vault.service" ]
   }
 }
 
 resource "null_resource" "vault_setup_3" {
-   triggers = {
-    always_run = "${timestamp()}"
-  }
+  #triggers = {
+  #  always_run = "${timestamp()}"
+  #}
 
   connection {
     type        = "ssh"
@@ -131,6 +179,23 @@ resource "null_resource" "vault_setup_3" {
     destination = "/tmp/vault_config.hcl"
   }
 
+  provisioner "file" {
+    content     = templatefile("certs/san.cnf.tftpl", {
+        ip_addr = aws_instance.vault_instances[0].public_ip,
+        })
+    destination = "/tmp/san.cnf"
+  }
+
+  provisioner "remote-exec" {
+    inline = [ 
+      "sleep 20",
+      "cd /tmp",
+      "openssl genrsa -out vault.key 2048",
+      "openssl req -new -key vault.key -out vault.csr -config san.cnf",
+      "openssl x509 -req -in vault.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out vault.crt -days 500 -sha256 -extensions v3_req -extfile ./san.cnf" 
+      ]    
+  }
+
   provisioner "remote-exec" {
         inline = [ "sleep 20", "sudo systemctl start vault.service" ]
   }
@@ -139,3 +204,20 @@ resource "null_resource" "vault_setup_3" {
 output "ec2_ip_addresses" {
   value = aws_instance.vault_instances.*.public_ip
 }
+
+/**
+locals {
+  ips = toseet([for each in aws_instance.vault_instances : each.public_ip])
+}
+resource "null_resource" "foo" {
+  triggers = {
+    always_run = "${timestamp()}"
+  }
+  
+  for_each = local.ips
+
+  
+  provisioner "local-exec" {
+    command = "echo \"Foo ${setsubtract(local.ips, ["3.70.137.25"])})\""
+  }
+}**/
